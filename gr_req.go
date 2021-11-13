@@ -1,0 +1,488 @@
+package gr
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"unsafe"
+)
+
+/*
+Returns a new request with the given context. Shortcut for `new(gr.Req).Ctx(ctx)`.
+*/
+func Ctx(ctx context.Context) *Req { return new(Req).Ctx(ctx) }
+
+/*
+Returns a new request with the given URL string. Shortcut for `new(gr.Req).To(val)`.
+*/
+func To(val string) *Req { return new(Req).To(val) }
+
+/*
+Returns a new request with the given URL. Shortcut for `new(gr.Req).Url(val)`.
+*/
+func Url(val *url.URL) *Req { return new(Req).Url(val) }
+
+/*
+Returns a new request with the given URL path. Shortcut for `new(gr.Req).Path(val)`.
+*/
+func Path(val string) *Req { return new(Req).Path(val) }
+
+// Returns a new request with the given method. Shortcut for `new(gr.Req).Meth(val)`.
+func Meth(val string) *Req { return new(Req).Meth(val) }
+
+// Returns a new "GET" request. Shortcut for `new(gr.Req).Get()`.
+func Get() *Req { return new(Req).Get() }
+
+// Returns a new "POST" request. Shortcut for `new(gr.Req).Post()`.
+func Post() *Req { return new(Req).Post() }
+
+// Returns a new "PUT" request. Shortcut for `new(gr.Req).Put()`.
+func Put() *Req { return new(Req).Put() }
+
+// Returns a new "PATCH" request. Shortcut for `new(gr.Req).Patch()`.
+func Patch() *Req { return new(Req).Patch() }
+
+// Returns a new "DELETE" request. Shortcut for `new(gr.Req).Delete()`.
+func Delete() *Req { return new(Req).Delete() }
+
+// Returns a new "OPTIONS" request. Shortcut for `new(gr.Req).Options()`.
+func Options() *Req { return new(Req).Options() }
+
+/*
+Returns a new request with pre-initialized non-zero context, method, URL, and
+header. Shortcut for `new(gr.Req).Init()`.
+*/
+func Init() *Req { return new(Req).Init() }
+
+/*
+Alias of `http.Request` with a fluent builder-style API. Freely castable to and
+from `http.Request`. All methods are defined on `*gr.Req` and may mutate the
+receiver or its inner references. To store and copy a "partially built"
+request, use `(*gr.Req).Clone`, but beware that it doesn't copy the body.
+*/
+type Req http.Request
+
+// Free cast to `*http.Request`.
+func (self *Req) Req() *http.Request { return (*http.Request)(self) }
+
+/*
+Initializes context, `.Method`, `.URL`, `.Header` to non-zero values, similar to
+how `http.NewRequest` would have done it. Mutates and returns the receiver.
+*/
+func (self *Req) Init() *Req { return self.initCtx().initMeth().initUrl().initHead() }
+
+/*
+Sets the inner context to the exact given value, without nil checks or
+fallbacks. Mutates and returns the receiver.
+*/
+func (self *Req) Ctx(ctx context.Context) *Req {
+	if self == nil {
+		return nil
+	}
+	*(*context.Context)(unsafe.Pointer(unsafe.Add(unsafe.Pointer(self), ctxOffset()))) = ctx
+	return self
+}
+
+/*
+Like `(*http.Request).Context` but without the hidden fallback on
+`context.Background`. Returns the context as-is.
+*/
+func (self *Req) Context() context.Context {
+	if self == nil {
+		return nil
+	}
+	return *(*context.Context)(unsafe.Pointer(unsafe.Add(unsafe.Pointer(self), ctxOffset())))
+}
+
+// True if `.Method` is "", "GET", "HEAD" or "OPTIONS".
+func (self *Req) IsReadOnly() bool { return IsReadOnly(self.Method) }
+
+// Sets `.Method` to the given value. Mutates and returns the receiver.
+func (self *Req) Meth(val string) *Req {
+	self.Method = val
+	return self
+}
+
+// Shortcut for `self.Meth(http.MethodGet)`.
+func (self *Req) Get() *Req { return self.Meth(http.MethodGet) }
+
+// Shortcut for `self.Meth(http.MethodPost)`.
+func (self *Req) Post() *Req { return self.Meth(http.MethodPost) }
+
+// Shortcut for `self.Meth(http.MethodPut)`.
+func (self *Req) Put() *Req { return self.Meth(http.MethodPut) }
+
+// Shortcut for `self.Meth(http.MethodPatch)`.
+func (self *Req) Patch() *Req { return self.Meth(http.MethodPatch) }
+
+// Shortcut for `self.Meth(http.MethodDelete)`.
+func (self *Req) Delete() *Req { return self.Meth(http.MethodDelete) }
+
+// Shortcut for `self.Meth(http.MethodOptions)`.
+func (self *Req) Options() *Req { return self.Meth(http.MethodOptions) }
+
+/*
+Uses `url.Parse` to parse the input and replaces `.URL` with the result. Panics
+if the URL can't be parsed. Mutates and returns the receiver.
+*/
+func (self *Req) To(src string) *Req {
+	val, err := url.Parse(src)
+	if err != nil {
+		panic(fmt.Errorf(`[gr] failed to parse request destination: %w`, err))
+	}
+	return self.Url(val)
+}
+
+// Sets `.URL` to the given value. Mutates and returns the receiver.
+func (self *Req) Url(val *url.URL) *Req {
+	self.URL = val
+	return self
+}
+
+/*
+Sets `.URL.Path` to the given value, creating a new URL reference if the URL was
+nil. Mutates and returns the receiver.
+*/
+func (self *Req) Path(val string) *Req {
+	self = self.initUrl()
+	self.URL.Path = val
+	return self
+}
+
+/*
+Sets `.URL.RawQuery` to the given value, creating a new URL reference if the URL
+was nil. Mutates and returns the receiver.
+*/
+func (self *Req) RawQuery(val string) *Req {
+	self = self.initUrl()
+	self.URL.RawQuery = val
+	return self
+}
+
+/*
+Shortcut for `self.RawQuery(url.Values(val).Encode())`. Accepts an "anonymous"
+type because all alias types such as `url.Values` are automatically castable
+into it.
+*/
+func (self *Req) Query(val map[string][]string) *Req {
+	return self.RawQuery(url.Values(val).Encode())
+}
+
+/*
+Sets `.Header` to the given value. Mutates and returns the receiver. Accepts
+an "anonymous" type because all alias types such as `http.Header` and `gr.Head`
+are automatically castable into it.
+*/
+func (self *Req) Head(val map[string][]string) *Req {
+	self.Header = val
+	return self
+}
+
+/*
+Deletes the given entry in `.Header` by using `gr.Head.Del`. May mutate
+`.Header`, but not the slices contained therein. Mutates and returns the
+receiver.
+*/
+func (self *Req) HeadDel(key string) *Req {
+	self.Header = Head(self.Header).Del(key).Header()
+	return self
+}
+
+/*
+Sets the given key-value in `.Header` by using `gr.Head.Set`. Allocates the
+header if necessary. May mutate `.Header`, but not the slices contained
+therein. Mutates and returns the receiver.
+*/
+func (self *Req) HeadSet(key, val string) *Req {
+	self.Header = Head(self.Header).Set(key, val).Header()
+	return self
+}
+
+/*
+Replaces the given key-values entry in `.Header` by using `gr.Head.Replace`.
+Allocates the header if necessary. May mutate `.Header`, but not the slices
+contained therein. Mutates and returns the receiver.
+*/
+func (self *Req) HeadReplace(key string, vals ...string) *Req {
+	self.Header = Head(self.Header).Replace(key, vals...).Header()
+	return self
+}
+
+/*
+Patches the header by using `gr.Head.Patch`. Allocates the header if necessary.
+May mutate `.Header`, but not the slices contained therein. Mutates and returns
+the receiver. Accepts an "anonymous" type because all alias types such as
+`http.Header` and `gr.Head` are automatically castable into it.
+*/
+func (self *Req) HeadPatch(head map[string][]string) *Req {
+	self.Header = Head(self.Header).Patch(head).Header()
+	return self
+}
+
+/*
+Shortcut for setting the "Content-Type" header. If the input is "", removes the
+header instead. Mutates and returns the receiver.
+*/
+func (self *Req) Type(typ string) *Req {
+	if typ == `` {
+		return self.HeadDel(Type)
+	}
+	return self.HeadSet(Type, typ)
+}
+
+/*
+Shortcut for setting the "Content-Type: application/json" header. Mutates and
+returns the receiver.
+*/
+func (self *Req) TypeJson() *Req { return self.Type(TypeJson) }
+
+/*
+Shortcut for setting the "Content-Type: application/x-www-form-urlencoded"
+header. Mutates and returns the receiver.
+*/
+func (self *Req) TypeForm() *Req { return self.Type(TypeForm) }
+
+/*
+Shortcut for setting the "Content-Type: multipart/form-data" header. Mutates and
+returns the receiver.
+*/
+func (self *Req) TypeMulti() *Req { return self.Type(TypeMulti) }
+
+/*
+Uses the given string as the request body, updating the following fields:
+
+	* `.ContentLength` -> input length, in bytes rather than characters.
+	* `.Body`          -> nil or `gr.NewStringReadCloser` from input.
+	* `.GetBody`       -> nil or function returning `gr.NewStringReadCloser` from input.
+
+If the input is empty, the listed fields are set to zero values, otherwise the
+fields are set to non-zero values. Mutates and returns the receiver.
+*/
+func (self *Req) String(val string) *Req {
+	self.ContentLength = int64(len(val))
+
+	if self.ContentLength == 0 {
+		self.GetBody = nil
+		self.Body = nil
+		return self
+	}
+
+	self.GetBody = func() (io.ReadCloser, error) { return NewStringReadCloser(val), nil }
+	self.Body = NewStringReadCloser(val)
+	return self
+}
+
+/*
+Uses the given string as the request body, updating the following fields:
+
+	* `.ContentLength` -> input length, in bytes rather than characters.
+	* `.Body`          -> nil or `gr.NewBytesReadCloser` from input.
+	* `.GetBody`       -> nil or function returning `gr.NewBytesReadCloser` from input.
+
+If the input is empty, the listed fields are set to zero values, otherwise the
+fields are set to non-zero values. Mutates and returns the receiver.
+*/
+func (self *Req) Bytes(val []byte) *Req {
+	self.ContentLength = int64(len(val))
+
+	if self.ContentLength == 0 {
+		self.GetBody = nil
+		self.Body = nil
+		return self
+	}
+
+	self.GetBody = func() (io.ReadCloser, error) { return NewBytesReadCloser(val), nil }
+	self.Body = NewBytesReadCloser(val)
+	return self
+}
+
+/*
+URL-encodes the given vals as the request body. Shortcut for
+`self.String(url.Values(val).Encode())`. Also sets `.ContentLength` and
+`.GetBody`. Accepts an "anonymous" type because all alias types such as
+`url.Values` are automatically castable into it. Mutates and returns the
+receiver.
+*/
+func (self *Req) Vals(val map[string][]string) *Req {
+	return self.String(url.Values(val).Encode())
+}
+
+/*
+URL-encodes the given vals as the request body. Also sets the header
+"Content-Type: application/x-www-form-urlencoded", as well as fields
+`.ContentLength` and `.GetBody`. Shortcut for `self.TypeForm().Vals(val)`.
+Accepts an "anonymous" type because all alias types such as `url.Values` are
+automatically castable into it. Mutates and returns the receiver.
+*/
+func (self *Req) FormVals(val map[string][]string) *Req {
+	return self.TypeForm().Vals(val)
+}
+
+/*
+JSON-encodes an arbitrary value, using it as request body. Also sets the header
+"Content-Type: application/json", as well as fields `.ContentLength` and
+`.GetBody`. Panics if JSON encoding fails. Use `(*gr.Req).JsonCatch` to catch
+those panics. Mutates and returns the receiver.
+*/
+func (self *Req) Json(val interface{}) *Req {
+	self = self.TypeJson()
+
+	/**
+	Questionable but convenient special case. Allows calling code to call this
+	unconditionally, regardless of the resulting HTTP method, without having
+	issues with clients that reject GET requests with a non-empty body. Also
+	avoids wasting performance  in this very common case.
+	*/
+	if self.IsReadOnly() && val == nil {
+		return self.ReadCloser(nil)
+	}
+
+	chunk, err := json.Marshal(val)
+	if err != nil {
+		panic(fmt.Errorf(`[gr] failed to JSON-encode request body: %w`, err))
+	}
+	return self.Bytes(chunk)
+}
+
+/*
+Same as `(*gr.Req).Json`, but if JSON encoding fails, returns an error instead
+of panicking.
+*/
+func (self *Req) JsonCatch(val interface{}) (err error) {
+	defer rec(&err)
+	self.Json(val)
+	return
+}
+
+/*
+Assumes that the given string is valid JSON, and uses it as the request body.
+Also sets "Content-Type: application/json". Shortcut for
+`self.TypeJson().String(val)`. Mutates and returns the receiver.
+*/
+func (self *Req) JsonString(val string) *Req {
+	return self.TypeJson().String(val)
+}
+
+/*
+Assumes that the given chunk is valid JSON, and uses it as the request body.
+Also sets "Content-Type: application/json". Shortcut for
+`self.TypeJson().Bytes(val)`. Mutates and returns the receiver.
+*/
+func (self *Req) JsonBytes(val []byte) *Req {
+	return self.TypeJson().Bytes(val)
+}
+
+/*
+Shortcut for setting `.Body` and returning the request. Sets the body as-is
+without affecting other fields. Mutates and returns the receiver.
+*/
+func (self *Req) ReadCloser(val io.ReadCloser) *Req {
+	self.Body = val
+	return self
+}
+
+/*
+Sets the given reader as the request body. If the reader is nil, sets nil.
+Otherwise wraps it in `io.NopCloser`. Mutates and returns the receiver.
+*/
+func (self *Req) Reader(val io.Reader) *Req {
+	if val == nil {
+		return self.ReadCloser(nil)
+	}
+	return self.ReadCloser(io.NopCloser(val))
+}
+
+/*
+Same as `(*http.Request).Clone`. Returns a deep copy. You can store
+"partially built" request templates and "continue" them after calling this
+method. Warning: this doesn't copy or clear `.Body` or `.GetBody`.
+*/
+func (self *Req) Clone(ctx context.Context) *Req {
+	return (*Req)(self.Req().Clone(ctx))
+}
+
+/*
+Short for "response". Shortcut for `(*gr.Res).CliRes` with nil transport.
+Performs the request using `http.DefaultClient`, returning the response as
+`*gr.Res`. Panics on transport errors, but NOT in case of successful HTTP
+responses with non-OK HTTP status codes. To avoid panics, use
+`(*gr.Req).ResCatch`.
+
+The caller MUST close the response body by calling `*gr.Res.Done` or its other
+reading or closing methods.
+*/
+func (self *Req) Res() *Res { return self.CliRes(nil) }
+
+/*
+Variant of `(*gr.Req).Res` that returns an error instead of panicking. If the
+response is non-nil, the caller MUST close the response body by calling
+`*gr.Res.Done` or its other reading or closing methods.
+*/
+func (self *Req) ResCatch() (_ *Res, err error) {
+	defer rec(&err)
+	return self.CliRes(nil), nil
+}
+
+/*
+Short for "client response" or "response using client". Performs the request
+using the given client, returning the response as `*gr.Res`. If the client is
+nil, uses `http.DefaultClient`. Panics on transport errors, but NOT in case of
+successful HTTP responses with non-OK HTTP status codes. To avoid panics, use
+`(*gr.Req).CliResCatch`.
+
+The caller MUST close the response body by calling `*gr.Res.Done` or its other
+reading or closing methods.
+*/
+func (self *Req) CliRes(cli *http.Client) *Res {
+	if cli == nil {
+		cli = http.DefaultClient
+	}
+
+	res, err := cli.Do(self.Init().Req())
+	if err != nil {
+		panic(fmt.Errorf(`[gr] failed to perform HTTP request: %w`, err))
+	}
+
+	return (*Res)(res)
+}
+
+/*
+Variant of `(*gr.Req).CliRes` that returns an error instead of panicking. If the
+response is non-nil, the caller MUST close the response body by calling
+`*gr.Res.Done` or its other reading or closing methods.
+*/
+func (self *Req) CliResCatch(cli *http.Client) (_ *Res, err error) {
+	defer rec(&err)
+	return self.CliRes(cli), nil
+}
+
+func (self *Req) initCtx() *Req {
+	if self.Context() == nil {
+		return self.Ctx(context.Background())
+	}
+	return self
+}
+
+func (self *Req) initMeth() *Req {
+	if self.Method == `` {
+		self.Method = http.MethodGet
+	}
+	return self
+}
+
+func (self *Req) initUrl() *Req {
+	if self.URL == nil {
+		self.URL = &url.URL{}
+	}
+	return self
+}
+
+func (self *Req) initHead() *Req {
+	if self.Header == nil {
+		self.Header = http.Header{}
+	}
+	return self
+}
