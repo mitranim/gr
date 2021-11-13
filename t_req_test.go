@@ -89,13 +89,16 @@ func TestReq_Put(t *testing.T)     { eq(t, http.MethodPut, new(gr.Req).Put().Met
 func TestReq_Delete(t *testing.T)  { eq(t, http.MethodDelete, new(gr.Req).Delete().Method) }
 
 func TestReq_Path(t *testing.T) {
-	test := func(exp U, val string) {
+	test := func(exp U, val string, vals ...interface{}) {
 		t.Helper()
-		eq(t, (&gr.Req{URL: &exp}), new(gr.Req).Path(val))
+		eq(t, (&gr.Req{URL: &exp}), new(gr.Req).Path(val, vals...))
 	}
 
 	test(U{}, ``)
+	test(U{Path: `/`}, ``, `/`)
 	test(U{Path: `/one`}, `/one`)
+	test(U{Path: `one/two/0/false`}, `one`, `two`, 0, false)
+	test(U{Path: `/one/two/0/false`}, `/one`, `two`, 0, false)
 }
 
 // Delegates to `gr.UrlAppend`, so we only need to check the basics.

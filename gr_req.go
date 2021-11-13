@@ -26,9 +26,10 @@ Returns a new request with the given URL. Shortcut for `new(gr.Req).Url(val)`.
 func Url(val *url.URL) *Req { return new(Req).Url(val) }
 
 /*
-Returns a new request with the given URL path. Shortcut for `new(gr.Req).Path(val)`.
+Returns a new request with the given URL path.
+Shortcut for `new(gr.Req).Path(val, vals...)`.
 */
-func Path(val string) *Req { return new(Req).Path(val) }
+func Path(val string, vals ...interface{}) *Req { return new(Req).Path(val, vals...) }
 
 // Returns a new request with the given method. Shortcut for `new(gr.Req).Meth(val)`.
 func Meth(val string) *Req { return new(Req).Meth(val) }
@@ -146,9 +147,10 @@ func (self *Req) Url(val *url.URL) *Req {
 Sets `.URL.Path` to the given value, creating a new URL reference if the URL was
 nil. Mutates and returns the receiver.
 */
-func (self *Req) Path(val string) *Req {
+func (self *Req) Path(val string, vals ...interface{}) *Req {
 	self = self.initUrl()
 	self.URL.Path = val
+	self.URL = UrlJoin(self.URL, vals...)
 	return self
 }
 
