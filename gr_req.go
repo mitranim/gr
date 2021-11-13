@@ -82,7 +82,7 @@ func (self *Req) Ctx(ctx context.Context) *Req {
 	if self == nil {
 		return nil
 	}
-	*(*context.Context)(unsafe.Pointer(unsafe.Add(unsafe.Pointer(self), ctxOffset()))) = ctx
+	*(*context.Context)(unsafe.Pointer(uintptr(unsafe.Pointer(self)) + ctxOffset())) = ctx
 	return self
 }
 
@@ -94,7 +94,7 @@ func (self *Req) Context() context.Context {
 	if self == nil {
 		return nil
 	}
-	return *(*context.Context)(unsafe.Pointer(unsafe.Add(unsafe.Pointer(self), ctxOffset())))
+	return *(*context.Context)(unsafe.Pointer(uintptr(unsafe.Pointer(self)) + ctxOffset()))
 }
 
 // True if `.Method` is "", "GET", "HEAD" or "OPTIONS".
@@ -153,6 +153,26 @@ func (self *Req) Path(val string) *Req {
 }
 
 /*
+Uses `gr.UrlAppend` to append the input to the URL path, slash-separated.
+Mutates and returns the receiver.
+*/
+func (self *Req) Append(val interface{}) *Req {
+	self = self.initUrl()
+	self.URL = UrlAppend(self.URL, val)
+	return self
+}
+
+/*
+Uses `gr.UrlJoin` to append the inputs to the URL path, slash-separated. Mutates
+and returns the receiver.
+*/
+func (self *Req) Join(vals ...interface{}) *Req {
+	self = self.initUrl()
+	self.URL = UrlJoin(self.URL, vals...)
+	return self
+}
+
+/*
 Sets `.URL.RawQuery` to the given value, creating a new URL reference if the URL
 was nil. Mutates and returns the receiver.
 */
@@ -188,6 +208,16 @@ receiver.
 */
 func (self *Req) HeadDel(key string) *Req {
 	self.Header = Head(self.Header).Del(key).Header()
+	return self
+}
+
+/*
+Appends the given key-value to `.Header` by using `gr.Head.Add`. Allocates the
+header if necessary. May mutate `.Header` and an existing slice corresponding
+to the key. Mutates and returns the receiver.
+*/
+func (self *Req) HeadAdd(key, val string) *Req {
+	self.Header = Head(self.Header).Add(key, val).Header()
 	return self
 }
 

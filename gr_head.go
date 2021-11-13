@@ -92,6 +92,38 @@ func (self Head) Del(key string) Head {
 }
 
 /*
+Similar to `http.Header.Add`, but also looks for an existing entry under this
+EXACT key, as well as an entry for the canonical version of the key, combining
+both under the canonical key. Internally calls `append`, which may mutate the
+backing array of any existing slices for this key. Mutates and returns the
+receiver. If the receiver is nil, allocates and returns a new map. For
+correctness, you must always reassign the returned value.
+*/
+func (self Head) Add(key, val string) Head {
+	keyCanon := canonKey(key)
+	if self == nil {
+		return Head{keyCanon: {val}}
+	}
+
+	if key == keyCanon {
+		self[key] = append(self[key], val)
+		return self
+	}
+
+	prev := self[key]
+	prevCanon := self[keyCanon]
+
+	if cap(prev) > 0 {
+		self[keyCanon] = append(append(prev, prevCanon...), val)
+	} else {
+		self[keyCanon] = append(prevCanon, val)
+	}
+
+	delete(self, key)
+	return self
+}
+
+/*
 Similar to `http.Header.Set`, but also replaces the previous entry under this
 exact key, if the key is non-canonical. The resulting entry always has the
 canonical key. Mutates and returns the receiver. If the receiver is nil,
@@ -142,7 +174,7 @@ func (self Head) Replace(key string, vals ...string) Head {
 }
 
 /*
-Applies the patches, using `gr.Head.Replace` for each key-values entry. Mutates
+Applies the patch, using `gr.Head.Replace` for each key-values entry. Mutates
 and returns the receiver. If the receiver is nil, allocates and returns a new
 map. For correctness, you must always reassign the returned value.
 

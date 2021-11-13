@@ -2,8 +2,13 @@ package gr
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"path"
+	r "reflect"
+	"strconv"
 	"strings"
 )
 
@@ -76,3 +81,116 @@ func IsClientErr(val int) bool { return val >= 400 && val <= 499 }
 
 // True if given HTTP status code is between 500 and 599 inclusive.
 func IsServerErr(val int) bool { return val >= 500 && val <= 599 }
+
+/*
+Appends the string representation of the input to the path of the given URL,
+slash-separated. The input must be string-encodable following the rules of
+`gr.Str`, and the resulting string must be non-empty, otherwise this panics to
+safeguard against calling external endpoints on the wrong address. Mutates the
+given URL and returns it. If the input URL is nil, creates and returns a new
+non-nil instance. For correctness, you must reassign the output instead of
+relying on mutation.
+*/
+func UrlAppend(ref *url.URL, val interface{}) *url.URL {
+	str := Str(val)
+	if str == `` {
+		panic(errUrlAppend)
+	}
+
+	if ref == nil {
+		return &url.URL{Path: str}
+	}
+
+	ref.Path = path.Join(ref.Path, str)
+	return ref
+}
+
+/*
+Appends the string representations of the input values to the path of the given
+URL, slash-separated. Uses `gr.UrlAppend` for each segment. Each segment must
+be non-empty, otherwise this panics to safeguard against calling external
+endpoints on the wrong address. Mutates the given URL and returns it. If the
+input URL is nil, creates and returns a new non-nil instance. For correctness,
+you must reassign the output instead of relying on mutation.
+*/
+func UrlJoin(ref *url.URL, vals ...interface{}) *url.URL {
+	for _, val := range vals {
+		ref = UrlAppend(ref, val)
+	}
+	return ref
+}
+
+/*
+Missing feature of the standard library: return a string representation of a
+primitive or "intentionally" stringable value, without allowing arbitrary
+non-stringable inputs. Differences from `fmt.Sprint`:
+
+	* Allow ONLY the following inputs:
+
+		* nil                       -> return ""
+		* `fmt.Stringer`            -> call `.String()`
+		* Built-in primitive types  -> use "strconv"
+
+	* Automatically dereference pointers to supported types.
+	  Nil pointers are considered equivalent to nil.
+
+	* Panic for all other inputs.
+
+	* Don't swallow encoding errors.
+*/
+func Str(src interface{}) string {
+	if src == nil {
+		return ``
+	}
+
+	impl, _ := src.(fmt.Stringer)
+	if impl != nil {
+		return impl.String()
+	}
+
+	typ := typeOf(src)
+	val := valueOf(src)
+
+	switch typ.Kind() {
+	case r.Int8, r.Int16, r.Int32, r.Int64, r.Int:
+		if val.IsValid() {
+			return strconv.FormatInt(val.Int(), 10)
+		}
+		return ``
+
+	case r.Uint8, r.Uint16, r.Uint32, r.Uint64, r.Uint:
+		if val.IsValid() {
+			return strconv.FormatUint(val.Uint(), 10)
+		}
+		return ``
+
+	case r.Float32, r.Float64:
+		if val.IsValid() {
+			return strconv.FormatFloat(val.Float(), 'f', -1, 64)
+		}
+		return ``
+
+	case r.Bool:
+		if val.IsValid() {
+			return strconv.FormatBool(val.Bool())
+		}
+		return ``
+
+	case r.String:
+		if val.IsValid() {
+			return val.String()
+		}
+		return ``
+
+	default:
+		/**
+		Doesn't report the value itself because it could be arbitrarily large, not
+		encodable without another panic, or include information that shouldn't be
+		exposed.
+		*/
+		panic(fmt.Errorf(
+			`[gt] failed to encode value of unsupported type %q of kind %q as string`,
+			typ, typ.Kind(),
+		))
+	}
+}

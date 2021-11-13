@@ -92,6 +92,40 @@ func TestHead_Del(t *testing.T) {
 	test(H{`two`: {`three`}}, H{`One`: nil, `two`: {`three`}}, `One`)
 }
 
+func TestHead_Add(t *testing.T) {
+	type H = gr.Head
+
+	test := func(exp, src gr.Head, key, val string) {
+		t.Helper()
+
+		tar := src.Add(key, val)
+		eq(t, exp, tar)
+
+		if src != nil {
+			is(t, src, tar)
+		}
+	}
+
+	test(H{`One`: {`two`}}, nil, `one`, `two`)
+	test(H{`One`: {`two`}}, nil, `One`, `two`)
+	test(H{`One`: {`two`, `three`}}, H{`one`: {`two`}}, `one`, `three`)
+	test(H{`One`: {`two`, `three`}}, H{`One`: {`two`}}, `one`, `three`)
+
+	test(
+		H{`one`: {`two`}, `One`: {`three`}},
+		H{`one`: {`two`}},
+		`One`,
+		`three`,
+	)
+
+	test(
+		H{`One`: {`two`, `three`, `four`}},
+		H{`one`: {`two`}, `One`: {`three`}},
+		`one`,
+		`four`,
+	)
+}
+
 func TestHead_Set(t *testing.T) {
 	type H = gr.Head
 

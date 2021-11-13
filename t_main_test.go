@@ -177,17 +177,6 @@ func try(err error) {
 	}
 }
 
-func readString(val io.Reader) string {
-	if val == nil {
-		return ``
-	}
-
-	chunk, err := io.ReadAll(val)
-	try(err)
-
-	return string(chunk)
-}
-
 type Trans struct {
 	Req *http.Request
 	Res *http.Response

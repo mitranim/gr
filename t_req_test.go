@@ -98,6 +98,49 @@ func TestReq_Path(t *testing.T) {
 	test(U{Path: `/one`}, `/one`)
 }
 
+// Delegates to `gr.UrlAppend`, so we only need to check the basics.
+func TestReq_Append(t *testing.T) {
+	test := func(exp string, src *gr.Req, val interface{}) {
+		t.Helper()
+		eq(t, (&gr.Req{URL: &U{Path: exp}}), src.Append(val))
+	}
+
+	test(`/`, new(gr.Req), `/`)
+	test(`/`, gr.Path(``), `/`)
+	test(`one`, gr.Path(``), `one`)
+	test(`one/two`, gr.Path(`one`), `two`)
+
+	panics(t, `[gt] failed to append to URL path: unexpected empty string`, func() {
+		new(gr.Req).Append(nil)
+	})
+
+	panics(t, `[gt] failed to append to URL path: unexpected empty string`, func() {
+		new(gr.Req).Append(``)
+	})
+}
+
+// Delegates to `gr.UrlJoin`, so we only need to check the basics.
+func TestReq_Join(t *testing.T) {
+	test := func(exp string, src *gr.Req, vals ...interface{}) {
+		t.Helper()
+		eq(t, (&gr.Req{URL: &U{Path: exp}}), src.Join(vals...))
+	}
+
+	test(``, new(gr.Req))
+	test(`one/0/false`, gr.Path(``), `one`, 0, false)
+	test(`/one/0/false`, gr.Path(`/`), `one`, 0, false)
+	test(`one/two/0/false`, gr.Path(`one`), `two`, 0, false)
+	test(`/one/two/0/false`, gr.Path(`/one`), `two`, 0, false)
+
+	panics(t, `[gt] failed to append to URL path: unexpected empty string`, func() {
+		new(gr.Req).Join(nil)
+	})
+
+	panics(t, `[gt] failed to append to URL path: unexpected empty string`, func() {
+		new(gr.Req).Join(``)
+	})
+}
+
 func TestReq_To(t *testing.T) {
 	test := func(exp U, val string) {
 		t.Helper()
@@ -181,6 +224,31 @@ func TestReq_Head(t *testing.T) {
 	)
 }
 
+// Delegates to `gr.Head.Add`, so we only need to check the basics.
+func TestReq_HeadAdd(t *testing.T) {
+	test := func(exp, src H, key, val string) {
+		t.Helper()
+		eq(t, (&gr.Req{Header: exp}), (&gr.Req{Header: src}).HeadAdd(key, val))
+	}
+
+	test(H{`One`: {`two`}}, nil, `one`, `two`)
+
+	test(
+		H{`one`: {`two`}, `One`: {`three`}},
+		H{`one`: {`two`}},
+		`One`,
+		`three`,
+	)
+
+	test(
+		H{`One`: {`two`, `three`, `four`}},
+		H{`one`: {`two`}, `One`: {`three`}},
+		`one`,
+		`four`,
+	)
+}
+
+// Delegates to `gr.Head.Set`, so we only need to check the basics.
 func TestReq_HeadSet(t *testing.T) {
 	test := func(exp, src H, key, val string) {
 		t.Helper()
@@ -199,6 +267,7 @@ func TestReq_HeadSet(t *testing.T) {
 	)
 }
 
+// Delegates to `gr.Head.Replace`, so we only need to check the basics.
 func TestReq_HeadReplace(t *testing.T) {
 	test := func(exp, src H, key string, vals ...string) {
 		t.Helper()
@@ -306,6 +375,7 @@ func TestReq_HeadReplace(t *testing.T) {
 	)
 }
 
+// Delegates to `gr.Head.Patch`, so we only need to check the basics.
 func TestReq_HeadPatch(t *testing.T) {
 	test := func(exp, src, patch H) {
 		t.Helper()

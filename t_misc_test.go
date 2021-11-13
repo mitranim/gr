@@ -2,7 +2,9 @@ package gr_test
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/mitranim/gr"
 )
@@ -164,4 +166,188 @@ func testIsServerErr(t testing.TB, fun func(int) bool) {
 	test(true, 501)
 	test(true, 599)
 	test(false, 600)
+}
+
+func TestStr(t *testing.T) {
+	test := func(exp string, src interface{}) {
+		t.Helper()
+		eq(t, exp, gr.Str(src))
+	}
+
+	test(``, nil)
+	test(``, ``)
+	test(``, (*string)(nil))
+	test(``, (**string)(nil))
+	test(``, (*int)(nil))
+	test(``, (**int)(nil))
+	test(`one`, `one`)
+	test(`0`, 0)
+	test(`10`, 10)
+	test(`123.456`, 123.456)
+	test(`true`, true)
+	test(`false`, false)
+	test(`0001-02-03 04:05:06.000000007 +0000 UTC`, time.Date(1, 2, 3, 4, 5, 6, 7, time.UTC))
+	test(``, &url.URL{})
+	test(`/one`, &url.URL{Path: `/one`})
+
+	panics(t, `unsupported type "[]int" of kind "slice"`, func() {
+		gr.Str([]int(nil))
+	})
+
+	panics(t, `unsupported type "struct {}" of kind "struct"`, func() {
+		gr.Str(struct{}{})
+	})
+
+	panics(t, `unsupported type "map[int]int" of kind "map"`, func() {
+		gr.Str((map[int]int)(nil))
+	})
+
+	panics(t, `unsupported type "func(interface {}) string" of kind "func"`, func() {
+		gr.Str(gr.Str)
+	})
+
+	panics(t, `unsupported type "chan int" of kind "chan"`, func() {
+		gr.Str((chan int)(nil))
+	})
+}
+
+func TestUrlAppend(t *testing.T) {
+	test := func(exp, src *url.URL, val interface{}) {
+		t.Helper()
+
+		out := gr.UrlAppend(src, val)
+		eq(t, exp, out)
+
+		if src != nil {
+			is(t, src, out)
+		}
+	}
+
+	testOne := func(exp string, val interface{}) {
+		t.Helper()
+		test(&url.URL{Path: exp}, nil, val)
+	}
+
+	panics(
+		t,
+		`[gt] failed to append to URL path: unexpected empty string`,
+		func() { testOne(``, ``) },
+	)
+
+	panics(
+		t,
+		`[gt] failed to append to URL path: unexpected empty string`,
+		func() { testOne(``, &url.URL{}) },
+	)
+
+	testOne(`10`, 10)
+	testOne(`true`, true)
+	testOne(`/`, `/`)
+	testOne(`one`, `one`)
+	testOne(`/one`, `/one`)
+	testOne(`one/`, `one/`)
+	testOne(`one/two`, `one/two`)
+	testOne(`/one/two`, `/one/two`)
+	testOne(`/one/two/`, `/one/two/`)
+	testOne(`one/two/`, `one/two/`)
+
+	testTwo := func(exp, src string, val interface{}) {
+		t.Helper()
+
+		test(
+			&url.URL{Path: exp},
+			&url.URL{Path: src},
+			val,
+		)
+
+		const query = `3d0abf=2a6bab`
+		const frag = `46343b`
+
+		test(
+			&url.URL{Path: exp, RawQuery: query, Fragment: frag},
+			&url.URL{Path: src, RawQuery: query, Fragment: frag},
+			val,
+		)
+	}
+
+	panics(
+		t,
+		`[gt] failed to append to URL path: unexpected empty string`,
+		func() { testTwo(``, ``, ``) },
+	)
+
+	panics(
+		t,
+		`[gt] failed to append to URL path: unexpected empty string`,
+		func() { testTwo(``, ``, &url.URL{}) },
+	)
+
+	testTwo(`10`, ``, 10)
+	testTwo(`true`, ``, true)
+	testTwo(`/`, ``, `/`)
+	testTwo(`/`, `/`, `/`)
+	testTwo(`/`, `//`, `/`)
+	testTwo(`/`, `/`, `//`)
+	testTwo(`/`, `//`, `//`)
+	testTwo(`one`, `one`, `/`)
+	testTwo(`one/10`, `one`, 10)
+	testTwo(`one/true`, `one`, true)
+	testTwo(`one/two`, `one`, &url.URL{Path: `two`})
+	testTwo(`one/two`, `one`, &url.URL{Path: `/two`})
+	testTwo(`one`, `one/`, `/`)
+	testTwo(`one/two`, `one`, `two`)
+	testTwo(`one/two`, `one`, `/two`)
+	testTwo(`one/two`, `one/`, `two`)
+	testTwo(`one/two`, `one/`, `/two`)
+	testTwo(`one/two`, `one/`, `/two/`)
+	testTwo(`one/two/three`, `one/`, `/two/three`)
+	testTwo(`one/two/three`, `one/`, `/two/three/`)
+	testTwo(`one/two/three`, `one`, `/two/three/`)
+	testTwo(`one/two/three`, `one`, `two/three/`)
+	testTwo(`one/two/three`, `one/`, `two/three/`)
+}
+
+// Defers to `UrlAppend`, so we only need to check the basics.
+func TestUrlJoin(t *testing.T) {
+	testOk := func(exp, init string, vals ...interface{}) {
+		t.Helper()
+
+		src := &url.URL{Path: init}
+		out := gr.UrlJoin(src, vals...)
+
+		eq(t, &url.URL{Path: exp}, out)
+
+		if src != nil {
+			is(t, src, out)
+		}
+	}
+
+	testOk(``, ``)
+	testOk(`0`, ``, 0)
+	testOk(`one/0`, `one`, 0)
+	testOk(`one/0/false`, `one`, 0, false)
+	testOk(`10/true/one`, ``, 10, `true`, `one`)
+	testOk(`one/10/true/two`, `one`, 10, `true`, `two`)
+
+	testFail := func(init string, vals ...interface{}) {
+		t.Helper()
+
+		panics(
+			t,
+			`[gt] failed to append to URL path: unexpected empty string`,
+			func() { gr.UrlJoin(&url.URL{Path: init}, vals...) },
+		)
+	}
+
+	testFail(``, nil)
+	testFail(``, ``)
+	testFail(``, `one`, nil)
+	testFail(``, `one`, nil, `two`)
+	testFail(``, `one`, ``, `two`)
+	testFail(`one`, nil)
+	testFail(`one`, ``)
+	testFail(`one`, `two`, nil)
+	testFail(`one`, `two`, nil, `three`)
+	testFail(`one`, `two`, ``, `three`)
+	testFail(`one`, `two`, &url.URL{}, `three`)
 }
