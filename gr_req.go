@@ -308,7 +308,7 @@ func (self *Req) String(val string) *Req {
 }
 
 /*
-Uses the given string as the request body, updating the following fields:
+Uses the given chunk as the request body, updating the following fields:
 
 	* `.ContentLength` -> input length, in bytes rather than characters.
 	* `.Body`          -> nil or `gr.NewBytesReadCloser` from input.

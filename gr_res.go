@@ -11,7 +11,7 @@ import (
 
 /*
 Alias of `http.Response` with many shortcuts for inspecting and decoding the
-response. Freely castable to and from `http.Request`.
+response. Freely castable to and from `http.Response`.
 
 When using `gr`, a response can be obtained by calling `(*gr.Req).Res` or
 `(*gr.Req).CliRes`. However, this is also usable for responses obtained from
