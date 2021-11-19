@@ -11,17 +11,27 @@ import (
 )
 
 /*
-Returns a new request with the given context. Shortcut for `new(gr.Req).Ctx(ctx)`.
+Returns a new request with the given context.
+Shortcut for `new(gr.Req).Ctx(ctx)`.
 */
 func Ctx(ctx context.Context) *Req { return new(Req).Ctx(ctx) }
 
 /*
-Returns a new request with the given URL string. Shortcut for `new(gr.Req).To(val)`.
+Returns a new request with the given client.
+Shortcut for `new(gr.Req).Cli(val)`.
+The name is short for "client", not "CLI".
+*/
+func Cli(val *http.Client) *Req { return new(Req).Cli(val) }
+
+/*
+Returns a new request with the given URL string.
+Shortcut for `new(gr.Req).To(val)`.
 */
 func To(val string) *Req { return new(Req).To(val) }
 
 /*
-Returns a new request with the given URL. Shortcut for `new(gr.Req).Url(val)`.
+Returns a new request with the given URL.
+Shortcut for `new(gr.Req).Url(val)`.
 */
 func Url(val *url.URL) *Req { return new(Req).Url(val) }
 
@@ -29,9 +39,14 @@ func Url(val *url.URL) *Req { return new(Req).Url(val) }
 Returns a new request with the given URL path.
 Shortcut for `new(gr.Req).Path(val, vals...)`.
 */
-func Path(val string, vals ...interface{}) *Req { return new(Req).Path(val, vals...) }
+func Path(val string, vals ...interface{}) *Req {
+	return new(Req).Path(val, vals...)
+}
 
-// Returns a new request with the given method. Shortcut for `new(gr.Req).Meth(val)`.
+/*
+Returns a new request with the given method.
+Shortcut for `new(gr.Req).Meth(val)`.
+*/
 func Meth(val string) *Req { return new(Req).Meth(val) }
 
 // Returns a new "GET" request. Shortcut for `new(gr.Req).Get()`.
@@ -73,7 +88,9 @@ func (self *Req) Req() *http.Request { return (*http.Request)(self) }
 Initializes context, `.Method`, `.URL`, `.Header` to non-zero values, similar to
 how `http.NewRequest` would have done it. Mutates and returns the receiver.
 */
-func (self *Req) Init() *Req { return self.initCtx().initMeth().initUrl().initHead() }
+func (self *Req) Init() *Req {
+	return self.initCtx().initMeth().initUrl().initHead()
+}
 
 /*
 Sets the inner context to the exact given value, without nil checks or
@@ -83,19 +100,44 @@ func (self *Req) Ctx(ctx context.Context) *Req {
 	if self == nil {
 		return nil
 	}
-	*(*context.Context)(unsafe.Pointer(uintptr(unsafe.Pointer(self)) + ctxOffset())) = ctx
+	*self.ctx() = ctx
 	return self
 }
 
 /*
-Like `(*http.Request).Context` but without the hidden fallback on
-`context.Background`. Returns the context as-is.
+Returns the inner context as-is. Like `(*http.Request).Context`, but without the
+hidden fallback on `context.Background`.
 */
 func (self *Req) Context() context.Context {
 	if self == nil {
 		return nil
 	}
-	return *(*context.Context)(unsafe.Pointer(uintptr(unsafe.Pointer(self)) + ctxOffset()))
+	return *self.ctx()
+}
+
+func (self *Req) ctx() *context.Context {
+	return (*context.Context)(unsafe.Pointer(uintptr(unsafe.Pointer(self)) + ctxOffset()))
+}
+
+/*
+Sets the given HTTP client, unsafely reusing the `.TLS` field which is normally
+unused in client requests. Passing nil clears the field. The client is
+automatically used by `(*gr.Req).Res` and `(*gr.Req).ResCatch`. The name is
+short for "client", not "CLI".
+*/
+func (self *Req) Cli(val *http.Client) *Req {
+	*self.cli() = val
+	return self
+}
+
+/*
+Returns the HTTP client previously set by `(*gr.Req).Cli`, unsafely reusing the
+`.TLS` field which is normally unused in client requests. The default is nil.
+*/
+func (self *Req) Client() *http.Client { return *self.cli() }
+
+func (self *Req) cli() **http.Client {
+	return (**http.Client)(unsafe.Pointer(&self.TLS))
 }
 
 // True if `.Method` is "", "GET", "HEAD" or "OPTIONS".
@@ -126,8 +168,8 @@ func (self *Req) Delete() *Req { return self.Meth(http.MethodDelete) }
 func (self *Req) Options() *Req { return self.Meth(http.MethodOptions) }
 
 /*
-Uses `url.Parse` to parse the input and replaces `.URL` with the result. Panics
-if the URL can't be parsed. Mutates and returns the receiver.
+Parses the input via `url.Parse` and sets `.URL` to the result. Panics on
+parsing errors. Mutates and returns the receiver.
 */
 func (self *Req) To(src string) *Req {
 	val, err := url.Parse(src)
@@ -137,14 +179,14 @@ func (self *Req) To(src string) *Req {
 	return self.Url(val)
 }
 
-// Sets `.URL` to the given value. Mutates and returns the receiver.
+// Sets the given value as `.URL`. Mutates and returns the receiver.
 func (self *Req) Url(val *url.URL) *Req {
 	self.URL = val
 	return self
 }
 
 /*
-Sets `.URL.Path` to the given value, creating a new URL reference if the URL was
+Sets the given value as `.URL.Path`, creating a new URL reference if the URL was
 nil. Mutates and returns the receiver.
 */
 func (self *Req) Path(val string, vals ...interface{}) *Req {
@@ -175,7 +217,7 @@ func (self *Req) Join(vals ...interface{}) *Req {
 }
 
 /*
-Sets `.URL.RawQuery` to the given value, creating a new URL reference if the URL
+Sets the given value as `.URL.RawQuery`, creating a new URL reference if the URL
 was nil. Mutates and returns the receiver.
 */
 func (self *Req) RawQuery(val string) *Req {
@@ -194,7 +236,7 @@ func (self *Req) Query(val map[string][]string) *Req {
 }
 
 /*
-Sets `.Header` to the given value. Mutates and returns the receiver. Accepts
+Sets the given value as `.Header`. Mutates and returns the receiver. Accepts
 an "anonymous" type because all alias types such as `http.Header` and `gr.Head`
 are automatically castable into it.
 */
@@ -354,8 +396,8 @@ func (self *Req) FormVals(val map[string][]string) *Req {
 }
 
 /*
-JSON-encodes an arbitrary value, using it as request body. Also sets the header
-"Content-Type: application/json", as well as fields `.ContentLength` and
+JSON-encodes an arbitrary value, using it as the request body. Also sets the
+header "Content-Type: application/json", as well as fields `.ContentLength` and
 `.GetBody`. Panics if JSON encoding fails. Use `(*gr.Req).JsonCatch` to catch
 those panics. Mutates and returns the receiver.
 */
@@ -363,10 +405,10 @@ func (self *Req) Json(val interface{}) *Req {
 	self = self.TypeJson()
 
 	/**
-	Questionable but convenient special case. Allows calling code to call this
+	Questionable but convenient special case. Allows the calling code to use this
 	unconditionally, regardless of the resulting HTTP method, without having
 	issues with clients that reject GET requests with a non-empty body. Also
-	avoids wasting performance  in this very common case.
+	avoids wasting performance in this very common case.
 	*/
 	if self.IsReadOnly() && val == nil {
 		return self.ReadCloser(nil)
@@ -428,25 +470,28 @@ func (self *Req) Reader(val io.Reader) *Req {
 }
 
 /*
-Same as `(*http.Request).Clone`. Returns a deep copy. You can store
-"partially built" request templates and "continue" them after calling this
-method. Warning: this doesn't copy or clear `.Body` or `.GetBody`.
+Returns a deep copy, like `(*http.Request).Clone`, but without forcing you to
+provide a context. Cloning allows to reuse partially built requests, like
+templates. This preserves everything, including the previous context and
+client. Inner mutable references such as `.URL` and `.Header` are deeply
+cloned. However, `.Body` is not cloned, and may not be reusable.
 */
-func (self *Req) Clone(ctx context.Context) *Req {
-	return (*Req)(self.Req().Clone(ctx))
+func (self *Req) Clone() *Req {
+	return (*Req)(self.Req().Clone(self.Req().Context())).Ctx(self.Context())
 }
 
 /*
-Short for "response". Shortcut for `(*gr.Res).CliRes` with nil transport.
-Performs the request using `http.DefaultClient`, returning the response as
-`*gr.Res`. Panics on transport errors, but NOT in case of successful HTTP
-responses with non-OK HTTP status codes. To avoid panics, use
-`(*gr.Req).ResCatch`.
+Short for "response". Shortcut for `(*gr.Res).CliRes(self.Client())`, which uses
+`http.DefaultClient` if no client was given. Returns the response as `*gr.Res`.
+Panics on transport errors, but NOT in case of successful HTTP responses with
+non-OK HTTP status codes. To avoid panics, use `(*gr.Req).ResCatch`.
 
 The caller MUST close the response body by calling `*gr.Res.Done` or its other
 reading or closing methods.
 */
-func (self *Req) Res() *Res { return self.CliRes(nil) }
+func (self *Req) Res() *Res {
+	return self.CliRes(self.Client())
+}
 
 /*
 Variant of `(*gr.Req).Res` that returns an error instead of panicking. If the
@@ -455,7 +500,7 @@ response is non-nil, the caller MUST close the response body by calling
 */
 func (self *Req) ResCatch() (_ *Res, err error) {
 	defer rec(&err)
-	return self.CliRes(nil), nil
+	return self.Res(), nil
 }
 
 /*

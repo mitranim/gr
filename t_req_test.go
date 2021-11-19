@@ -36,16 +36,29 @@ func TestReq_Ctx_Context(t *testing.T) {
 	test := func(val context.Context) {
 		t.Helper()
 
-		is(
-			t,
-			val,
-			new(gr.Req).Ctx(val).Context(),
-		)
+		req := new(gr.Req)
+		is(t, nil, req.Context())
+		is(t, val, req.Ctx(val).Context())
+		is(t, nil, req.Ctx(nil).Context())
 	}
 
 	test(nil)
 	test(context.Background())
 	test(context.TODO())
+}
+
+func TestReq_Cli_Client(t *testing.T) {
+	test := func(val *http.Client) {
+		t.Helper()
+		req := new(gr.Req)
+		is(t, (*http.Client)(nil), req.Client())
+		is(t, val, req.Cli(val).Client())
+		is(t, (*http.Client)(nil), req.Cli(nil).Client())
+	}
+
+	test(nil)
+	test(http.DefaultClient)
+	test(&http.Client{Transport: http.DefaultTransport})
 }
 
 func TestReq_Meth(t *testing.T) {
@@ -585,9 +598,9 @@ func TestReq_Reader(t *testing.T) {
 func TestReq_Clone(t *testing.T) {
 	srcUrl := &U{Path: `/one`}
 	srcHead := H{gr.Type: {gr.TypeForm}}
-	src := new(gr.Req).Url(srcUrl).Head(srcHead)
+	src := new(gr.Req).Url(srcUrl).Head(srcHead).Ctx(context.Background())
 
-	tar := src.Clone(context.Background())
+	tar := src.Clone()
 	tar.URL.Path = `/two`
 	tar.Header.Set(gr.Type, gr.TypeJson)
 
@@ -596,7 +609,7 @@ func TestReq_Clone(t *testing.T) {
 		(&gr.Req{
 			URL:    &U{Path: `/one`},
 			Header: H{gr.Type: {gr.TypeForm}},
-		}),
+		}).Ctx(context.Background()),
 		src,
 	)
 
@@ -679,6 +692,18 @@ func TestReq_Init(t *testing.T) {
 
 func TestReq_Req(t *testing.T) {
 	eq(t, new(Q), new(gr.Req).Req())
+}
+
+func TestReq_Cli_Res(t *testing.T) {
+	trans := Trans{
+		Res: &S{Body: gr.NewStringReadCloser(`hello world`)},
+	}
+
+	cli := &http.Client{Transport: &trans}
+	res := new(gr.Req).Cli(cli).Res()
+
+	eq(t, gr.Init().Cli(cli).Req(), trans.Req)
+	eq(t, trans.Res, res.Res())
 }
 
 func TestReq_CliRes(t *testing.T) {
