@@ -59,6 +59,20 @@ var _ = io.ReadCloser((*BytesReadCloser)(nil))
 // Nop `io.Closer`.
 func (self *BytesReadCloser) Close() error { return nil }
 
+/*
+Short for "transport". Function type that implements `http.RoundTripper` by
+calling itself. Can be used as `http.Client.Transport` or `gr.Cli.Transport`.
+*/
+type Trans func(*http.Request) (*http.Response, error)
+
+// Implement `http.RoundTripper`.
+func (self Trans) RoundTrip(req *http.Request) (*http.Response, error) {
+	if self != nil {
+		return self(req)
+	}
+	return nil, nil
+}
+
 // True if given HTTP method is "", "GET", "HEAD" or "OPTIONS".
 func IsReadOnly(val string) bool {
 	return val == `` ||

@@ -17,13 +17,6 @@ Shortcut for `new(gr.Req).Ctx(ctx)`.
 func Ctx(ctx context.Context) *Req { return new(Req).Ctx(ctx) }
 
 /*
-Returns a new request with the given client.
-Shortcut for `new(gr.Req).Cli(val)`.
-The name is short for "client", not "CLI".
-*/
-func Cli(val *http.Client) *Req { return new(Req).Cli(val) }
-
-/*
 Returns a new request with the given URL string.
 Shortcut for `new(gr.Req).To(val)`.
 */

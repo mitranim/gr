@@ -39,6 +39,8 @@ func TestReq_Ctx_Context(t *testing.T) {
 		req := new(gr.Req)
 		is(t, nil, req.Context())
 		is(t, val, req.Ctx(val).Context())
+
+		// nolint:staticcheck
 		is(t, nil, req.Ctx(nil).Context())
 	}
 
