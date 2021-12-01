@@ -52,7 +52,7 @@ func (self *Res) Ok() *Res {
 	}
 
 	defer self.Done()
-	panic(self.resErr(`non-OK`))
+	panic(self.Err(`non-OK`))
 }
 
 /*
@@ -77,7 +77,7 @@ func (self *Res) Redir() *Res {
 	}
 
 	defer self.Done()
-	panic(self.resErr(`non-redirect`))
+	panic(self.Err(`non-redirect`))
 }
 
 /*
@@ -299,12 +299,18 @@ func (self *Res) XmlCatch(out interface{}) (err error) {
 	return
 }
 
-func (self *Res) resErr(desc string) error {
+/*
+Returns an error that includes the response HTTP status code and the downloaded
+body, as well as the provided short description. Always downloads and closes
+the response body, if any. The description must be non-empty, and represent a
+reason why the response is unsatisfactory, such as "non-OK" or "non-redirect".
+*/
+func (self *Res) Err(desc string) Err {
 	body := self.Body
 	if body == nil {
 		return Err{
-			self.StatusCode,
-			fmt.Errorf(`unexpected %v response with empty body`, desc),
+			Status: self.StatusCode,
+			Cause:  errResUnexpectedWithEmptyBody(desc),
 		}
 	}
 	defer body.Close()
@@ -312,20 +318,21 @@ func (self *Res) resErr(desc string) error {
 	chunk, err := io.ReadAll(body)
 	if err != nil {
 		return Err{
-			self.StatusCode,
-			fmt.Errorf(`unexpected %v response; failed to read response body: %w`, desc, err),
+			Status: self.StatusCode,
+			Cause:  errResUnexpectedFailedToReadBody(desc),
 		}
 	}
 
 	if len(chunk) == 0 {
 		return Err{
-			self.StatusCode,
-			fmt.Errorf(`unexpected %v response with empty body`, desc),
+			Status: self.StatusCode,
+			Cause:  errResUnexpectedWithEmptyBody(desc),
 		}
 	}
 
 	return Err{
-		self.StatusCode,
-		fmt.Errorf(`unexpected %v response; body: %s`, desc, chunk),
+		Status: self.StatusCode,
+		Body:   chunk,
+		Cause:  errResUnexpected(desc),
 	}
 }

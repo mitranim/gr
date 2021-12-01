@@ -60,6 +60,12 @@ func Delete() *Req { return new(Req).Delete() }
 // Returns a new "OPTIONS" request. Shortcut for `new(gr.Req).Options()`.
 func Options() *Req { return new(Req).Options() }
 
+// Returns a new "CONNECT" request. Shortcut for `new(gr.Req).Connect()`.
+func Connect() *Req { return new(Req).Connect() }
+
+// Returns a new "TRACE" request. Shortcut for `new(gr.Req).Trace()`.
+func Trace() *Req { return new(Req).Trace() }
+
 /*
 Returns a new request with pre-initialized non-zero context, method, URL, and
 header. Shortcut for `new(gr.Req).Init()`.
@@ -159,6 +165,12 @@ func (self *Req) Delete() *Req { return self.Meth(http.MethodDelete) }
 
 // Shortcut for `self.Meth(http.MethodOptions)`.
 func (self *Req) Options() *Req { return self.Meth(http.MethodOptions) }
+
+// Shortcut for `self.Meth(http.MethodConnect)`.
+func (self *Req) Connect() *Req { return self.Meth(http.MethodConnect) }
+
+// Shortcut for `self.Meth(http.MethodTrace)`.
+func (self *Req) Trace() *Req { return self.Meth(http.MethodTrace) }
 
 /*
 Parses the input via `url.Parse` and sets `.URL` to the result. Panics on

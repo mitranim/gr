@@ -15,6 +15,18 @@ var (
 	errUrlAppend = fmt.Errorf(`[gt] failed to append to URL path: unexpected empty string`)
 )
 
+func errResUnexpected(desc string) error {
+	return fmt.Errorf(`unexpected %v response`, desc)
+}
+
+func errResUnexpectedWithEmptyBody(desc string) error {
+	return fmt.Errorf(`unexpected %v response with empty body`, desc)
+}
+
+func errResUnexpectedFailedToReadBody(desc string) error {
+	return fmt.Errorf(`unexpected %v response; failed to read response body`, desc)
+}
+
 /*
 Allocation-free conversion. Reinterprets a byte slice as a string. Borrowed from
 the standard library. Reasonably safe. Should not be used when the underlying
@@ -99,4 +111,35 @@ func valueDeref(val r.Value) r.Value {
 		val = val.Elem()
 	}
 	return val
+}
+
+// Copied from `github.com/mitranim/gax` and tested there.
+func growBytes(prev []byte, size int) []byte {
+	len, cap := len(prev), cap(prev)
+	if cap-len >= size {
+		return prev
+	}
+
+	next := make([]byte, len, 2*cap+size)
+	copy(next, prev)
+	return next
+}
+
+func appendBodyPreview(buf, body []byte) []byte {
+	size := len(body)
+	if size == 0 {
+		return buf
+	}
+
+	const limit = 4096
+	buf = append(buf, `; body: `...)
+
+	if len(body) > limit {
+		buf = append(buf, body[:limit]...)
+		buf = append(buf, ` ... <truncated>`...)
+	} else {
+		buf = append(buf, body...)
+	}
+
+	return buf
 }

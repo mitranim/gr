@@ -94,6 +94,8 @@ func TestReq_Meth(t *testing.T) {
 	test(http.MethodPatch)
 	test(http.MethodPut)
 	test(http.MethodDelete)
+	test(http.MethodConnect)
+	test(http.MethodTrace)
 }
 
 func TestReq_Get(t *testing.T)     { eq(t, http.MethodGet, new(gr.Req).Get().Method) }
@@ -102,6 +104,8 @@ func TestReq_Post(t *testing.T)    { eq(t, http.MethodPost, new(gr.Req).Post().M
 func TestReq_Patch(t *testing.T)   { eq(t, http.MethodPatch, new(gr.Req).Patch().Method) }
 func TestReq_Put(t *testing.T)     { eq(t, http.MethodPut, new(gr.Req).Put().Method) }
 func TestReq_Delete(t *testing.T)  { eq(t, http.MethodDelete, new(gr.Req).Delete().Method) }
+func TestReq_Connect(t *testing.T) { eq(t, http.MethodConnect, new(gr.Req).Connect().Method) }
+func TestReq_Trace(t *testing.T)   { eq(t, http.MethodTrace, new(gr.Req).Trace().Method) }
 
 func TestReq_Path(t *testing.T) {
 	test := func(exp U, val string, vals ...interface{}) {
