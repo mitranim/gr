@@ -9,10 +9,21 @@ import (
 	"github.com/mitranim/gr"
 )
 
-func TestType(t *testing.T)      { eq(t, `Content-Type`, gr.Type) }
-func TestTypeJson(t *testing.T)  { eq(t, `application/x-www-form-urlencoded`, gr.TypeForm) }
-func TestTypeForm(t *testing.T)  { eq(t, `application/json`, gr.TypeJson) }
-func TestTypeMulti(t *testing.T) { eq(t, `multipart/form-data`, gr.TypeMulti) }
+func TestType(t *testing.T) {
+	eq(t, `Content-Type`, gr.Type)
+}
+
+func TestTypeJson(t *testing.T) {
+	eq(t, `application/x-www-form-urlencoded; charset=utf-8`, gr.TypeForm)
+}
+
+func TestTypeForm(t *testing.T) {
+	eq(t, `application/json; charset=utf-8`, gr.TypeJson)
+}
+
+func TestTypeMulti(t *testing.T) {
+	eq(t, `multipart/form-data; charset=utf-8`, gr.TypeMulti)
+}
 
 func TestIsReadOnly(t *testing.T) {
 	test := func(exp bool, val string) {

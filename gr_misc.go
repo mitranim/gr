@@ -14,9 +14,9 @@ import (
 
 const (
 	Type      = `Content-Type`
-	TypeJson  = `application/json`
-	TypeForm  = `application/x-www-form-urlencoded`
-	TypeMulti = `multipart/form-data`
+	TypeJson  = `application/json; charset=utf-8`
+	TypeForm  = `application/x-www-form-urlencoded; charset=utf-8`
+	TypeMulti = `multipart/form-data; charset=utf-8`
 )
 
 /*
