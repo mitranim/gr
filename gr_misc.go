@@ -208,3 +208,23 @@ func Str(src interface{}) string {
 		))
 	}
 }
+
+/*
+Fully reads the given stream via `io.ReadAll`, closing it at the end, and
+returns two "forks". Used internally by `(*gr.Req).CloneBody` and
+`(*gr.Res).CloneBody`. If reading fails, panics. If the input is nil, both
+outputs are nil.
+*/
+func ForkReadCloser(val io.ReadCloser) (_, _ io.ReadCloser) {
+	if val == nil {
+		return nil, nil
+	}
+	defer val.Close()
+
+	chunk, err := io.ReadAll(val)
+	if err != nil {
+		panic(errForkRead(err))
+	}
+
+	return NewBytesReadCloser(chunk), NewBytesReadCloser(chunk)
+}

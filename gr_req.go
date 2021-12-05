@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"unsafe"
 )
 
@@ -475,14 +476,66 @@ func (self *Req) Reader(val io.Reader) *Req {
 }
 
 /*
+Returns a copy of the request body. Attempts to use `.GetBody` if possible. May
+fully read, close, and replace the current body. If both `.Body` and `.GetBody`
+are nil, returns nil.
+*/
+func (self *Req) CloneBody() io.ReadCloser {
+	if self.GetBody != nil {
+		body, err := self.GetBody()
+		if err != nil {
+			panic(errReqBodyClone(err))
+		}
+		return body
+	}
+
+	one, two := ForkReadCloser(self.Body)
+	self.Body = one
+	return two
+}
+
+/*
 Returns a deep copy, like `(*http.Request).Clone`, but without forcing you to
 provide a context. Cloning allows to reuse partially built requests, like
 templates. This preserves everything, including the previous context and
 client. Inner mutable references such as `.URL` and `.Header` are deeply
-cloned. However, `.Body` is not cloned, and may not be reusable.
+cloned. Unlike `(*http.Request).Clone`, this also clones the body, by calling
+`(*gr.Req).CloneBody` which is available separately.
 */
 func (self *Req) Clone() *Req {
-	return (*Req)(self.Req().Clone(self.Req().Context())).Ctx(self.Context())
+	if self == nil {
+		return nil
+	}
+
+	req := (*Req)(self.Req().Clone(self.Req().Context())).Ctx(self.Context())
+	req.Body = self.CloneBody()
+	return req
+}
+
+/*
+Introspection shortcut. Uses `(*http.Request).Write`, but panics on error
+instead of returning an error. Follows the write with a newline. Caution:
+mutates the request by reading the body. If you intend to send the request, use
+`.Clone` or `.Dump`.
+*/
+func (self *Req) Write(out io.Writer) {
+	if self != nil && out != nil {
+		err := self.Req().Write(out)
+		if err != nil {
+			panic(errWrite(err))
+		}
+		_, _ = out.Write(bytesNewline)
+	}
+}
+
+/*
+Introspection tool. Shortcut for using `(*gr.Req).Write` to dump the request to
+standard output. Clones before dumping. Can be used in method chains without
+affecting the original request.
+*/
+func (self *Req) Dump() *Req {
+	self.Clone().Write(os.Stdout)
+	return self
 }
 
 /*

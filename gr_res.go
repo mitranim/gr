@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 /*
@@ -335,4 +336,63 @@ func (self *Res) Err(desc string) Err {
 		Body:   chunk,
 		Cause:  errResUnexpected(desc),
 	}
+}
+
+/*
+Returns a copy of the response body. Mutates the receiver by fully reading,
+closing, and replacing the current body. If the current body is nil, this is a
+nop and the output is nil.
+*/
+func (self *Res) CloneBody() io.ReadCloser {
+	one, two := ForkReadCloser(self.Body)
+	self.Body = one
+	return two
+}
+
+/*
+Similar to `(*gr.Res).Clone`. Returns a deep copy whose mutations don't affect
+the original. Mostly useful for introspection, like dumping to standard output,
+which requires reading the body. Clones the body via `(*gr.Res).CloneBody`
+which is available separately, and other fields via their standard library
+counterparts.
+*/
+func (self *Res) Clone() *Res {
+	if self == nil {
+		return nil
+	}
+
+	out := *self
+	out.Header = self.Header.Clone()
+	out.TransferEncoding = cloneStrings(self.TransferEncoding)
+	out.Trailer = self.Trailer.Clone()
+	out.Request = (*Req)(self.Request).Clone().Req()
+	out.Body = self.CloneBody()
+
+	return &out
+}
+
+/*
+Introspection shortcut. Uses `(*http.Response).Write`, but panics on error
+instead of returning an error. Follows the write with a newline. Caution:
+mutates the response by reading the body. If you intend to further read the
+response, use `.Clone` or `.Dump`.
+*/
+func (self *Res) Write(out io.Writer) {
+	if self != nil && out != nil {
+		err := self.Res().Write(out)
+		if err != nil {
+			panic(errWrite(err))
+		}
+		_, _ = out.Write(bytesNewline)
+	}
+}
+
+/*
+Introspection tool. Shortcut for using `(*gr.Res).Write` to dump the response to
+standard output. Clones before dumping. Can be used in method chains without
+affecting the original response.
+*/
+func (self *Res) Dump() *Res {
+	self.Clone().Write(os.Stdout)
+	return self
 }

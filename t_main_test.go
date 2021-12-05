@@ -44,9 +44,6 @@ func testHandler(rew W, req *Q) {
 }
 
 func testHandlerJson(rew W, req *Q) {
-	body, err := io.ReadAll(req.Body)
-	try(err)
-
 	try(json.NewEncoder(rew).Encode(struct {
 		ReqMethod string `json:"reqMethod"`
 		ReqUrl    string `json:"reqUrl"`
@@ -54,19 +51,16 @@ func testHandlerJson(rew W, req *Q) {
 	}{
 		ReqMethod: req.Method,
 		ReqUrl:    req.URL.String(),
-		ReqBody:   string(body),
+		ReqBody:   readStr(req.Body),
 	}))
 }
 
 func testHandlerDefault(rew W, req *Q) {
-	body, err := io.ReadAll(req.Body)
-	try(err)
-
 	fmt.Fprintf(rew, `
 request method: %v
 request URL: %v
 request body: %s
-`, req.Method, req.URL, body)
+`, req.Method, req.URL, readStr(req.Body))
 }
 
 func eq(t testing.TB, exp, act interface{}) {
@@ -247,3 +241,14 @@ func (self *DecodeFail) UnmarshalXML(*xml.Decoder, xml.StartElement) error { ret
 func spr(val string) *string { return &val }
 
 func iter(count int) []struct{} { return make([]struct{}, count) }
+
+func readStr(src io.Reader) string {
+	if src == nil {
+		return ``
+	}
+
+	val, err := io.ReadAll(src)
+	try(err)
+
+	return string(val)
+}

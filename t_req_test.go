@@ -472,10 +472,7 @@ func testBodyString(t testing.TB, src string, req *gr.Req) {
 func testGetBody(t testing.TB, text string, body io.ReadCloser, req *gr.Req) {
 	reader, err := req.GetBody()
 	eq(t, nil, err)
-
-	chunk, err := io.ReadAll(reader)
-	eq(t, nil, err)
-	eq(t, text, string(chunk))
+	eq(t, text, readStr(reader))
 }
 
 func TestReq_Bytes(t *testing.T) {
@@ -601,32 +598,119 @@ func TestReq_Reader(t *testing.T) {
 	)
 }
 
+// TODO dedup with `TestRes_CloneBody`.
+func TestReq_CloneBody(t *testing.T) {
+	t.Run(`nil`, func(t *testing.T) {
+		req := new(gr.Req)
+
+		eq(t, nil, req.Body)
+		eq(t, nil, req.CloneBody())
+		eq(t, nil, req.Body)
+	})
+
+	t.Run(`uses GetBody`, func(t *testing.T) {
+		req := new(gr.Req).String(`hello world`)
+
+		eq(t, gr.NewStringReadCloser(`hello world`), req.Body)
+		eq(t, req.Body, req.CloneBody())
+
+		eq(t, `hello world`, readStr(req.CloneBody()))
+		eq(t, `hello world`, readStr(req.CloneBody()))
+
+		// Mutates the request by reading its body, which becomes empty.
+		eq(t, `hello world`, readStr(req.Body))
+		eq(t, ``, readStr(req.Body))
+
+		// Uses `.GetBody` which still works.
+		eq(t, `hello world`, readStr(req.CloneBody()))
+	})
+
+	t.Run(`without GetBody`, func(t *testing.T) {
+		req := new(gr.Req).String(`hello world`)
+		req.GetBody = nil
+
+		eq(t, gr.NewStringReadCloser(`hello world`), req.Body)
+
+		eq(
+			t,
+			gr.NewBytesReadCloser([]byte(`hello world`)),
+			req.CloneBody(),
+		)
+
+		// The original body got read and replaced.
+		// Note the difference in type from before.
+		eq(
+			t,
+			gr.NewBytesReadCloser([]byte(`hello world`)),
+			req.Body,
+		)
+
+		eq(t, `hello world`, readStr(req.CloneBody()))
+		eq(t, `hello world`, readStr(req.CloneBody()))
+
+		// Mutates the request by reading its body, which becomes empty.
+		eq(t, `hello world`, readStr(req.Body))
+		eq(t, ``, readStr(req.Body))
+
+		// Clones have no choice but to be empty.
+		eq(t, ``, readStr(req.CloneBody()))
+	})
+}
+
+// TODO dedup with `TestRes_Clone`.
 func TestReq_Clone(t *testing.T) {
+	t.Run(`nil`, func(t *testing.T) {
+		eq(t, (*gr.Req)(nil), (*gr.Req)(nil).Clone())
+		is(t, (*gr.Req)(nil), (*gr.Req)(nil).Clone())
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	srcUrl := &U{Path: `/one`}
 	srcHead := H{gr.Type: {gr.TypeForm}}
-	src := new(gr.Req).Url(srcUrl).Head(srcHead).Ctx(context.Background())
+	src := new(gr.Req).Url(srcUrl).Head(srcHead).String(`hello world`).Ctx(ctx)
 
 	tar := src.Clone()
+
+	// Mutate the clone to demonstrate that the original is unaffected.
 	tar.URL.Path = `/two`
 	tar.Header.Set(gr.Type, gr.TypeJson)
+
+	is(t, src.GetBody, tar.GetBody)
+
+	// Makes it possible to use `eq` below. `reflect.DeepEqual` seems unable to
+	// compare functions by pointer, even though we have the same pointer here.
+	src.GetBody = nil
+	tar.GetBody = nil
 
 	eq(
 		t,
 		(&gr.Req{
-			URL:    &U{Path: `/one`},
-			Header: H{gr.Type: {gr.TypeForm}},
-		}).Ctx(context.Background()),
+			URL:           &U{Path: `/one`},
+			Header:        H{gr.Type: {gr.TypeForm}},
+			Body:          gr.NewStringReadCloser(`hello world`),
+			ContentLength: int64(len(`hello world`)),
+		}).Ctx(ctx),
 		src,
 	)
 
 	eq(
 		t,
 		(&gr.Req{
-			URL:    &U{Path: `/two`},
-			Header: H{gr.Type: {gr.TypeJson}},
-		}).Ctx(context.Background()),
+			URL:           &U{Path: `/two`},
+			Header:        H{gr.Type: {gr.TypeJson}},
+			Body:          gr.NewStringReadCloser(`hello world`),
+			ContentLength: int64(len(`hello world`)),
+		}).Ctx(ctx),
 		tar,
 	)
+
+	eq(t, `hello world`, readStr(tar.Body))
+	eq(t, ``, readStr(tar.Body))
+
+	eq(t, `hello world`, readStr(src.Body))
+	eq(t, ``, readStr(src.Body))
 }
 
 func TestReq_Init(t *testing.T) {

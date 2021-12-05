@@ -323,3 +323,86 @@ func TestRes_XmlCatch(t *testing.T) {
 		eq(t, true, body.DidClose)
 	})
 }
+
+// TODO dedup with `TestReq_CloneBody`.
+func TestRes_CloneBody(t *testing.T) {
+	t.Run(`nil`, func(t *testing.T) {
+		res := new(gr.Res)
+
+		eq(t, nil, res.Body)
+		eq(t, nil, res.CloneBody())
+		eq(t, nil, res.Body)
+	})
+
+	t.Run(`normal`, func(t *testing.T) {
+		res := new(gr.Res)
+		res.Body = gr.NewStringReadCloser(`hello world`)
+
+		eq(t, gr.NewStringReadCloser(`hello world`), res.Body)
+
+		eq(
+			t,
+			gr.NewBytesReadCloser([]byte(`hello world`)),
+			res.CloneBody(),
+		)
+
+		// The original body got read and replaced.
+		// Note the difference in type from before.
+		eq(
+			t,
+			gr.NewBytesReadCloser([]byte(`hello world`)),
+			res.Body,
+		)
+
+		eq(t, `hello world`, readStr(res.CloneBody()))
+		eq(t, `hello world`, readStr(res.CloneBody()))
+
+		// Mutates the request by reading its body, which becomes empty.
+		eq(t, `hello world`, readStr(res.Body))
+		eq(t, ``, readStr(res.Body))
+
+		// Clones have no choice but to be empty.
+		eq(t, ``, readStr(res.CloneBody()))
+	})
+}
+
+// TODO dedup with `TestReq_Clone`.
+func TestRes_Clone(t *testing.T) {
+	t.Run(`nil`, func(t *testing.T) {
+		eq(t, (*gr.Res)(nil), (*gr.Res)(nil).Clone())
+		is(t, (*gr.Res)(nil), (*gr.Res)(nil).Clone())
+	})
+
+	src := new(gr.Res)
+	src.Header = H{gr.Type: {gr.TypeForm}}
+	src.Body = gr.NewStringReadCloser(`hello world`)
+
+	tar := src.Clone()
+
+	// Mutate the clone to demonstrate that the original is unaffected.
+	tar.Header.Set(gr.Type, gr.TypeJson)
+
+	eq(
+		t,
+		(&gr.Res{
+			Header: H{gr.Type: {gr.TypeForm}},
+			Body:   gr.NewBytesReadCloser([]byte(`hello world`)),
+		}),
+		src,
+	)
+
+	eq(
+		t,
+		(&gr.Res{
+			Header: H{gr.Type: {gr.TypeJson}},
+			Body:   gr.NewBytesReadCloser([]byte(`hello world`)),
+		}),
+		tar,
+	)
+
+	eq(t, `hello world`, readStr(tar.Body))
+	eq(t, ``, readStr(tar.Body))
+
+	eq(t, `hello world`, readStr(src.Body))
+	eq(t, ``, readStr(src.Body))
+}

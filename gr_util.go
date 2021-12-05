@@ -13,6 +13,7 @@ import (
 
 var (
 	errUrlAppend = fmt.Errorf(`[gt] failed to append to URL path: unexpected empty string`)
+	bytesNewline = []byte("\n")
 )
 
 func errResUnexpected(desc string) error {
@@ -25,6 +26,18 @@ func errResUnexpectedWithEmptyBody(desc string) error {
 
 func errResUnexpectedFailedToReadBody(desc string) error {
 	return fmt.Errorf(`unexpected %v response; failed to read response body`, desc)
+}
+
+func errReqBodyClone(err error) error {
+	return fmt.Errorf(`[gr] failed to clone request body: %w`, err)
+}
+
+func errForkRead(err error) error {
+	return fmt.Errorf(`[gr] failed to read for forking: %w`, err)
+}
+
+func errWrite(err error) error {
+	return fmt.Errorf(`[gr] failed to write: %w`, err)
 }
 
 /*
@@ -142,4 +155,13 @@ func appendBodyPreview(buf, body []byte) []byte {
 	}
 
 	return buf
+}
+
+func cloneStrings(src []string) []string {
+	if src == nil {
+		return nil
+	}
+	out := make([]string, len(src))
+	copy(out, src)
+	return out
 }
