@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"unsafe"
+	u "unsafe"
 )
 
 type (
@@ -84,12 +84,12 @@ func is(t testing.TB, exp, act interface{}) {
 
 	// nolint:structcheck
 	type iface struct {
-		typ unsafe.Pointer
-		dat unsafe.Pointer
+		typ u.Pointer
+		dat u.Pointer
 	}
 
-	expIface := *(*iface)(unsafe.Pointer(&exp))
-	actIface := *(*iface)(unsafe.Pointer(&act))
+	expIface := *(*iface)(u.Pointer(&exp))
+	actIface := *(*iface)(u.Pointer(&act))
 
 	if expIface != actIface {
 		t.Fatalf(`

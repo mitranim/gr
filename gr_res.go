@@ -268,26 +268,41 @@ func (self *Res) JsonEitherCatch(outVal, outErr interface{}) (_ bool, err error)
 }
 
 /*
+Shortcut for `(*gr.Res).XmlWith` with a nil func. Decodes the response body
+without any special XML decoder options.
+*/
+func (self *Res) Xml(out interface{}) *Res {
+	return self.XmlWith(out, nil)
+}
+
+/*
 Parses the response body into the given output, which must be either nil or a
 pointer. Uses `xml.Decoder` to decode from a stream, without buffering the
-entire body. Panics on errors. If the output is nil, skips downloading or
-decoding. Returns the same response. Always closes the body.
+entire body. The given function is used to customize the decoder, and may be
+nil. Panics on errors. If the output is nil, skips downloading or decoding.
+Returns the same response. Always closes the body.
 */
-func (self *Res) Xml(out interface{}) {
+func (self *Res) XmlWith(out interface{}, fun func(*xml.Decoder)) *Res {
 	body := self.Body
 	if body == nil {
-		return
+		return self
 	}
 	defer body.Close()
 
 	if out == nil {
-		return
+		return self
 	}
 
-	err := xml.NewDecoder(body).Decode(out)
+	dec := xml.NewDecoder(body)
+	if fun != nil {
+		fun(dec)
+	}
+
+	err := dec.Decode(out)
 	if err != nil {
 		panic(fmt.Errorf(`[gr] failed to XML-decode response body: %w`, err))
 	}
+	return self
 }
 
 /*
@@ -297,6 +312,16 @@ or parsing fails. Always closes the body.
 func (self *Res) XmlCatch(out interface{}) (err error) {
 	defer rec(&err)
 	self.Xml(out)
+	return
+}
+
+/*
+Non-panicking version of `(*gr.Res).XmlWith`. Returns an error if body
+downloading or parsing fails. Always closes the body.
+*/
+func (self *Res) XmlWithCatch(out interface{}, fun func(*xml.Decoder)) (err error) {
+	defer rec(&err)
+	self.XmlWith(out, fun)
 	return
 }
 

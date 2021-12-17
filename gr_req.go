@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"unsafe"
+	u "unsafe"
 )
 
 /*
@@ -97,9 +97,6 @@ Sets the inner context to the exact given value, without nil checks or
 fallbacks. Mutates and returns the receiver.
 */
 func (self *Req) Ctx(ctx context.Context) *Req {
-	if self == nil {
-		return nil
-	}
 	*self.ctx() = ctx
 	return self
 }
@@ -108,15 +105,13 @@ func (self *Req) Ctx(ctx context.Context) *Req {
 Returns the inner context as-is. Like `(*http.Request).Context`, but without the
 hidden fallback on `context.Background`.
 */
-func (self *Req) Context() context.Context {
+func (self *Req) Context() context.Context { return *self.ctx() }
+
+func (self *Req) ctx() *context.Context {
 	if self == nil {
 		return nil
 	}
-	return *self.ctx()
-}
-
-func (self *Req) ctx() *context.Context {
-	return (*context.Context)(unsafe.Pointer(uintptr(unsafe.Pointer(self)) + ctxOffset()))
+	return (*context.Context)(u.Pointer(uintptr(u.Pointer(self)) + ctxOffset()))
 }
 
 /*
@@ -137,7 +132,7 @@ Returns the HTTP client previously set by `(*gr.Req).Cli`, unsafely reusing the
 func (self *Req) Client() *http.Client { return *self.cli() }
 
 func (self *Req) cli() **http.Client {
-	return (**http.Client)(unsafe.Pointer(&self.TLS))
+	return (**http.Client)(u.Pointer(&self.TLS))
 }
 
 // True if `.Method` is "", "GET", "HEAD" or "OPTIONS".
@@ -192,8 +187,9 @@ func (self *Req) Url(val *url.URL) *Req {
 }
 
 /*
-Sets the given value as `.URL.Path`, creating a new URL reference if the URL was
-nil. Mutates and returns the receiver.
+Uses `gr.UrlJoin` to make a URL path and sets the result as `.URL.Path`,
+creating a new URL reference if the URL was nil. Mutates and returns the
+receiver.
 */
 func (self *Req) Path(val string, vals ...interface{}) *Req {
 	self = self.initUrl()

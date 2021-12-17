@@ -8,7 +8,7 @@ import (
 	"net/textproto"
 	r "reflect"
 	"sync"
-	"unsafe"
+	u "unsafe"
 )
 
 var (
@@ -47,7 +47,7 @@ byte array is volatile, for example when it's part of a scratch buffer during
 SQL scanning.
 */
 func bytesString(input []byte) string {
-	return *(*string)(unsafe.Pointer(&input))
+	return *(*string)(u.Pointer(&input))
 }
 
 // Must be deferred.
@@ -91,7 +91,7 @@ func ctxOffsetFind() {
 			return
 		}
 	}
-	panic(`failed to identify offset of "context.Context" in "http.Request"`)
+	panic(fmt.Errorf(`failed to find offset of %q in %q`, ctxType, typ))
 }
 
 func ctxOffset() uintptr {

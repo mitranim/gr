@@ -1,7 +1,9 @@
 package gr_test
 
 import (
+	"encoding/xml"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/mitranim/gr"
@@ -321,6 +323,35 @@ func TestRes_XmlCatch(t *testing.T) {
 		)
 
 		eq(t, true, body.DidClose)
+	})
+}
+
+// Most behaviors are tested via `TestRes_XmlCatch`.
+// We just need to verify that the customizer function is used.
+func TestRes_XmlWithCatch(t *testing.T) {
+	const src = `<string>hello world`
+
+	t.Run(`without customizer`, func(t *testing.T) {
+		res := &gr.Res{Body: NewReaderCloseFlag(src)}
+		err := res.XmlWithCatch(new(string), nil)
+
+		eq(t, true, err != nil)
+
+		// XML syntax errors don't support error wrapping and unwrapping.
+		// As a result, `errors.Is(err, io.EOF) == false`.
+		eq(t, true, strings.Contains(err.Error(), `EOF`))
+	})
+
+	t.Run(`with customizer`, func(t *testing.T) {
+		res := &gr.Res{Body: NewReaderCloseFlag(src)}
+
+		fun := func(dec *xml.Decoder) {
+			dec.Strict = false
+			dec.AutoClose = []string{`string`}
+		}
+
+		err := res.XmlWithCatch(new(string), fun)
+		is(t, nil, err)
 	})
 }
 
