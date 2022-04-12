@@ -2,6 +2,7 @@ package gr_test
 
 import (
 	"encoding/xml"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -185,6 +186,86 @@ func TestRes_CloseErr(t *testing.T) {
 
 	eq(t, nil, (&gr.Res{Body: body}).CloseErr())
 	eq(t, &ReadCloseFlag{DidRead: false, DidClose: true}, body)
+}
+
+func TestRes_Type(t *testing.T) {
+	test := func(exp string, src *gr.Res) {
+		t.Helper()
+		eq(t, exp, src.Type())
+	}
+
+	test(``, nil)
+	test(``, new(gr.Res))
+	test(gr.TypeJson, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJson}}})
+	test(gr.TypeJsonUtf8, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJsonUtf8}}})
+}
+
+func TestRes_Media(t *testing.T) {
+	test := func(typExp string, parExp map[string]string, src *gr.Res) {
+		t.Helper()
+		typ, par := src.Media()
+		eq(t, typExp, typ)
+		eq(t, parExp, par)
+	}
+
+	test(``, nil, nil)
+	test(``, nil, new(gr.Res))
+	test(gr.TypeJson, map[string]string{}, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJson}}})
+	test(gr.TypeJson, map[string]string{`charset`: `utf-8`}, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJsonUtf8}}})
+}
+
+func TestRes_MediaType(t *testing.T) {
+	test := func(exp string, src *gr.Res) {
+		t.Helper()
+		eq(t, exp, src.MediaType())
+	}
+
+	test(``, nil)
+	test(``, new(gr.Res))
+	test(gr.TypeJson, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJson}}})
+	test(gr.TypeJson, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJsonUtf8}}})
+}
+
+func TestRes_IsJson(t *testing.T) {
+	test := func(exp bool, src *gr.Res) {
+		t.Helper()
+		eq(t, exp, src.IsJson())
+	}
+
+	test(false, nil)
+	test(false, new(gr.Res))
+	test(false, &gr.Res{Header: http.Header{gr.Type: {gr.TypeForm}}})
+	test(false, &gr.Res{Header: http.Header{gr.Type: {gr.TypeFormUtf8}}})
+	test(true, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJson}}})
+	test(true, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJsonUtf8}}})
+}
+
+func TestRes_IsForm(t *testing.T) {
+	test := func(exp bool, src *gr.Res) {
+		t.Helper()
+		eq(t, exp, src.IsForm())
+	}
+
+	test(false, nil)
+	test(false, new(gr.Res))
+	test(false, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJson}}})
+	test(false, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJsonUtf8}}})
+	test(true, &gr.Res{Header: http.Header{gr.Type: {gr.TypeForm}}})
+	test(true, &gr.Res{Header: http.Header{gr.Type: {gr.TypeFormUtf8}}})
+}
+
+func TestRes_IsMulti(t *testing.T) {
+	test := func(exp bool, src *gr.Res) {
+		t.Helper()
+		eq(t, exp, src.IsMulti())
+	}
+
+	test(false, nil)
+	test(false, new(gr.Res))
+	test(false, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJson}}})
+	test(false, &gr.Res{Header: http.Header{gr.Type: {gr.TypeJsonUtf8}}})
+	test(true, &gr.Res{Header: http.Header{gr.Type: {gr.TypeMulti}}})
+	test(true, &gr.Res{Header: http.Header{gr.Type: {gr.TypeMultiUtf8}}})
 }
 
 func TestRes_ReadBytes(t *testing.T) {

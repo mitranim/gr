@@ -14,15 +14,27 @@ func TestType(t *testing.T) {
 }
 
 func TestTypeJson(t *testing.T) {
-	eq(t, `application/x-www-form-urlencoded; charset=utf-8`, gr.TypeForm)
+	eq(t, `application/x-www-form-urlencoded`, gr.TypeForm)
+}
+
+func TestTypeJsonUtf8(t *testing.T) {
+	eq(t, `application/x-www-form-urlencoded; charset=utf-8`, gr.TypeFormUtf8)
 }
 
 func TestTypeForm(t *testing.T) {
-	eq(t, `application/json; charset=utf-8`, gr.TypeJson)
+	eq(t, `application/json`, gr.TypeJson)
+}
+
+func TestTypeFormUtf8(t *testing.T) {
+	eq(t, `application/json; charset=utf-8`, gr.TypeJsonUtf8)
 }
 
 func TestTypeMulti(t *testing.T) {
-	eq(t, `multipart/form-data; charset=utf-8`, gr.TypeMulti)
+	eq(t, `multipart/form-data`, gr.TypeMulti)
+}
+
+func TestTypeMultiUtf8(t *testing.T) {
+	eq(t, `multipart/form-data; charset=utf-8`, gr.TypeMultiUtf8)
 }
 
 func TestIsReadOnly(t *testing.T) {

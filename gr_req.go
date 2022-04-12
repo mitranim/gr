@@ -77,7 +77,7 @@ func Init() *Req { return new(Req).Init() }
 Alias of `http.Request` with a fluent builder-style API. Freely castable to and
 from `http.Request`. All methods are defined on `*gr.Req` and may mutate the
 receiver or its inner references. To store and copy a "partially built"
-request, use `(*gr.Req).Clone`, but beware that it doesn't copy the body.
+request, use `(*gr.Req).Clone`.
 */
 type Req http.Request
 
@@ -108,9 +108,6 @@ hidden fallback on `context.Background`.
 func (self *Req) Context() context.Context { return *self.ctx() }
 
 func (self *Req) ctx() *context.Context {
-	if self == nil {
-		return nil
-	}
 	return (*context.Context)(u.Pointer(uintptr(u.Pointer(self)) + ctxOffset()))
 }
 
@@ -118,7 +115,7 @@ func (self *Req) ctx() *context.Context {
 Sets the given HTTP client, unsafely reusing the `.TLS` field which is normally
 unused in client requests. Passing nil clears the field. The client is
 automatically used by `(*gr.Req).Res` and `(*gr.Req).ResCatch`. The name is
-short for "client", not "CLI".
+short for "client", not "CLI". Mutates and returns the receiver.
 */
 func (self *Req) Cli(val *http.Client) *Req {
 	*self.cli() = val

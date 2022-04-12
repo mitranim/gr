@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -142,6 +143,50 @@ func (self *Res) CloseErr() error {
 	}
 	return nil
 }
+
+/*
+Returns the `Content-Type` header. Note that the content-type may contain
+additional parameters, and needs to be parsed before comparing it to a "pure"
+media type such as `gr.TypeJson`.
+*/
+func (self *Res) Type() string {
+	if self != nil && self.Header != nil {
+		return self.Header.Get(Type)
+	}
+	return ``
+}
+
+/*
+Parses the `Content-Type` header via `mime.ParseMediaType`.
+Panics on error.
+*/
+func (self *Res) Media() (_ string, _ map[string]string) {
+	src := self.Type()
+	if src == `` {
+		return
+	}
+
+	typ, par, err := mime.ParseMediaType(src)
+	if err != nil {
+		panic(fmt.Errorf(`[gr] failed to parse media type %q: %w`, src, err))
+	}
+	return typ, par
+}
+
+// Returns the media type parsed via `(*gr.Res).Media`.
+func (self *Res) MediaType() (_ string) {
+	val, _ := self.Media()
+	return val
+}
+
+// True if the parsed media type of `Content-Type` is `gr.TypeJson`.
+func (self *Res) IsJson() bool { return self.MediaType() == TypeJson }
+
+// True if the parsed media type of `Content-Type` is `gr.TypeForm`.
+func (self *Res) IsForm() bool { return self.MediaType() == TypeForm }
+
+// True if the parsed media type of `Content-Type` is `gr.TypeMulti`.
+func (self *Res) IsMulti() bool { return self.MediaType() == TypeMulti }
 
 /*
 Uses `io.ReadAll` to read the entire response body, returning the resulting
