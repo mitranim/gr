@@ -339,10 +339,7 @@ func TestUrlJoin(t *testing.T) {
 		out := gr.UrlJoin(src, vals...)
 
 		eq(t, &url.URL{Path: exp}, out)
-
-		if src != nil {
-			is(t, src, out)
-		}
+		is(t, src, out)
 	}
 
 	testOk(``, ``)

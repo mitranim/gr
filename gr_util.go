@@ -84,8 +84,8 @@ var (
 
 func ctxOffsetFind() {
 	typ := r.TypeOf((*http.Request)(nil)).Elem()
-	for i := range iter(typ.NumField()) {
-		field := typ.Field(i)
+	for ind := range iter(typ.NumField()) {
+		field := typ.Field(ind)
 		if field.Type == ctxType {
 			ctxOffsetVal = field.Offset
 			return
@@ -124,6 +124,24 @@ func valueDeref(val r.Value) r.Value {
 		val = val.Elem()
 	}
 	return val
+}
+
+func isNil(val interface{}) bool {
+	return val == nil || isValueNil(r.ValueOf(val))
+}
+
+func isValueNil(val r.Value) bool {
+	val = valueDeref(val)
+	return !val.IsValid() || isKindNilable(val.Kind()) && val.IsNil()
+}
+
+func isKindNilable(val r.Kind) bool {
+	switch val {
+	case r.Chan, r.Func, r.Interface, r.Map, r.Ptr, r.Slice, r.UnsafePointer:
+		return true
+	default:
+		return false
+	}
 }
 
 // Copied from `github.com/mitranim/gax` and tested there.
