@@ -265,7 +265,7 @@ func (self *Res) Json(out interface{}) *Res {
 	}
 	defer body.Close()
 
-	if isNil(out) {
+	if isNilOutput(out) {
 		return self
 	}
 
@@ -334,7 +334,7 @@ func (self *Res) XmlWith(out interface{}, fun func(*xml.Decoder)) *Res {
 	}
 	defer body.Close()
 
-	if isNil(out) {
+	if isNilOutput(out) {
 		return self
 	}
 

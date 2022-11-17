@@ -126,22 +126,23 @@ func valueDeref(val r.Value) r.Value {
 	return val
 }
 
-func isNil(val interface{}) bool {
-	return val == nil || isValueNil(r.ValueOf(val))
+func IsNil(val interface{}) bool {
+	return isNilOutput(val)
 }
 
-func isValueNil(val r.Value) bool {
-	val = valueDeref(val)
-	return !val.IsValid() || isKindNilable(val.Kind()) && val.IsNil()
-}
+/**
+TODO better name and test:
 
-func isKindNilable(val r.Kind) bool {
-	switch val {
-	case r.Chan, r.Func, r.Interface, r.Map, r.Ptr, r.Slice, r.UnsafePointer:
+	nil            -> true
+	(*string)(nil) -> true
+	new([]string)  -> false
+*/
+func isNilOutput(out interface{}) bool {
+	if out == nil {
 		return true
-	default:
-		return false
 	}
+	val := r.ValueOf(out)
+	return val.Kind() == r.Ptr && val.IsNil()
 }
 
 // Copied from `github.com/mitranim/gax` and tested there.
