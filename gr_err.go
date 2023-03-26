@@ -21,11 +21,11 @@ func (self Err) HttpStatusCode() int { return self.Status }
 
 // Implement the `error` interface.
 func (self Err) Error() string {
-	return bytesString(self.Append(nil))
+	return bytesString(self.AppendTo(nil))
 }
 
 // Appends the error representation. Used internally by `.Error`.
-func (self Err) Append(buf []byte) []byte {
+func (self Err) AppendTo(buf []byte) []byte {
 	buf = growBytes(buf, 128)
 	buf = append(buf, `[gr] error`...)
 
@@ -38,9 +38,9 @@ func (self Err) Append(buf []byte) []byte {
 	cause := self.Cause
 	if cause != nil {
 		buf = append(buf, `: `...)
-		impl, _ := cause.(interface{ Append([]byte) []byte })
+		impl, _ := cause.(interface{ AppendTo([]byte) []byte })
 		if impl != nil {
-			buf = impl.Append(buf)
+			buf = impl.AppendTo(buf)
 		} else {
 			buf = append(buf, cause.Error()...)
 		}

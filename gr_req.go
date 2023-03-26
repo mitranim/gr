@@ -103,7 +103,9 @@ func (self *Req) Ctx(ctx context.Context) *Req {
 
 /*
 Returns the inner context as-is. Like `(*http.Request).Context`, but without the
-hidden fallback on `context.Background`.
+hidden fallback on `context.Background`. The function naming is inconsistent
+with `.Ctx` which sets the context; consistent name would be `.GetCtx` or
+`.CtxGet`; this name is used to match the existing `(*http.Request).Context`.
 */
 func (self *Req) Context() context.Context { return *self.ctx() }
 
@@ -232,6 +234,12 @@ into it.
 */
 func (self *Req) Query(val map[string][]string) *Req {
 	return self.RawQuery(url.Values(val).Encode())
+}
+
+// Makes sure `.Header` is non-nil. Mutates and returns the receiver.
+func (self *Req) HeadInit() *Req {
+	self.Header = Head(self.Header).Init().Header()
+	return self
 }
 
 /*

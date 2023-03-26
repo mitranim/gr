@@ -85,17 +85,17 @@ func ExampleReq_formBodyPlainResponse() {
 }
 ```
 
-## Why pointers
+## Why Pointers
 
-Since `gr` uses a chainable builder-style API, it could have defined all "builder" methods on `Req` and `Res`, rather than `*Req` and `*Res`. This would allow to store "partially built" requests, and "fork" them by simply reassigning the variable. So why pointers instead?
+Since `gr` uses a chainable builder-style API, we could have defined all "builder" methods on `gr.Req` and `gr.Res` (non-pointer types), rather than on `*gr.Req` and `*gr.Res` (pointer types). This would allow to store "partially built" requests, and "fork" them by simply reassigning variables. So why do we define this on pointer types?
 
-* In Go, request and response are inherently mutable, because they contain reference types such as `*url.URL`, `http.Header` and `io.ReadCloser`. Copying the struct `http.Request` or `http.Response` by reassigning the variable makes a shallow copy, while the inner references are still shared. That would be hazardous. Only explicit copying via `.Clone` is viable.
+* In Go, request and response are inherently mutable because they contain reference types such as `*url.URL`, `http.Header` and `io.ReadCloser`. Copying structs such as `http.Request` or `http.Response` by reassigning variables makes a shallow copy where the inner references are still mutably shared. That would be hazardous. Explicit copying via `.Clone` is less error prone.
 
 * Emulating an "immutable" API by using copy-on-write for URL and headers is possible, but incurs a measurable performance penalty.
 
 * All APIs in `"net/http"` operate on requests and responses by pointer. By using the same pointers, we avoid the overhead of copying and reallocation.
 
-* Go request and response structs are rather large. The language seems to use naive call conventions that involve always copying value types, as opposed to passing them by reference when they would be "const". For large structs, always passing them by pointer rather than by value seems faster.
+* Go request and response structs are rather large. The language seems to use naive call conventions that involve always copying value types, as opposed to passing them by reference when they would be constant. For large structs, always passing them by pointer rather than by value seems faster.
 
 ## License
 
