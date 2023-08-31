@@ -12,6 +12,9 @@ type Err struct {
 	Cause  error  `json:"cause,omitempty"`
 }
 
+// ↑ TODO: preserve other response data such as headers. Consider defining a
+// type describing a fully downloaded response.
+
 // Implement a hidden interface in "errors".
 func (self Err) Unwrap() error { return self.Cause }
 

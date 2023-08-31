@@ -212,6 +212,8 @@ Uses `gr.UrlJoin` to append the inputs to the URL path, slash-separated. Mutates
 and returns the receiver.
 */
 func (self *Req) Join(vals ...interface{}) *Req {
+	// TODO rename to `.PathJoin` or `.PathAdd`.
+
 	self = self.initUrl()
 	self.URL = UrlJoin(self.URL, vals...)
 	return self

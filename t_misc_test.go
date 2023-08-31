@@ -330,6 +330,38 @@ func TestUrlAppend(t *testing.T) {
 	testTwo(`one/two/three`, `one/`, `two/three/`)
 }
 
+func TestUrlAppend_path_slash(t *testing.T) {
+	eq(
+		t,
+		&url.URL{Path: `/`},
+		gr.UrlAppend(&url.URL{}, `/`),
+	)
+
+	eq(
+		t,
+		&url.URL{Path: `one`},
+		gr.UrlAppend(&url.URL{}, `one`),
+	)
+
+	eq(
+		t,
+		&url.URL{Path: `/one`},
+		gr.UrlAppend(&url.URL{}, `/one`),
+	)
+
+	eq(
+		t,
+		&url.URL{Host: `one`, Path: `/`},
+		gr.UrlAppend(&url.URL{Host: `one`}, `/`),
+	)
+
+	eq(
+		t,
+		&url.URL{Host: `one`, Path: `/two`},
+		gr.UrlAppend(&url.URL{Host: `one`}, `two`),
+	)
+}
+
 // Defers to `UrlAppend`, so we only need to check the basics.
 func TestUrlJoin(t *testing.T) {
 	testOk := func(exp, init string, vals ...interface{}) {
